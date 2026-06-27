@@ -15,32 +15,41 @@
       <img src="images/logo.png" alt="R-Rivals Online" class="title-logo">
     </div>
 
-    <div class="lobby-form">
-      <input type="text" id="playerName" placeholder="あなたの名前" maxlength="12" class="input-field">
+    <button class="img-btn lobby-btn" onclick="openNamePopup()">
+      <img src="images/btn-name.png" alt="あなたの名前">
+    </button>
 
-      <div class="lobby-buttons">
-        <button id="btnCreate" class="img-btn img-btn-large lobby-btn" onclick="createRoom()">
-          <img src="images/btn-create.png" alt="ルームを作る">
-        </button>
-        <div class="join-group">
-          <button class="img-btn img-btn-half lobby-btn" onclick="document.getElementById('roomCode').focus()">
-            <img src="images/btn-password.png" alt="合言葉">
-            <input type="text" id="roomCode" placeholder="入力" maxlength="4" class="code-overlay">
-          </button>
-          <button id="btnJoin" class="img-btn img-btn-half lobby-btn" onclick="joinRoom()">
-            <img src="images/btn-join.png" alt="参加">
-          </button>
-        </div>
-        <button id="btnCpu" class="img-btn img-btn-large lobby-btn" onclick="startCpuGame()">
-          <img src="images/btn-cpu.png" alt="CPU対戦">
-        </button>
-      </div>
+    <div class="lobby-grid">
+      <button class="img-btn lobby-btn" onclick="openCreatePopup()">
+        <img src="images/btn-create.png" alt="ルームを作る">
+      </button>
+      <button class="img-btn lobby-btn" onclick="openJoinPopup()">
+        <img src="images/btn-password.png" alt="合言葉">
+      </button>
+      <button class="img-btn lobby-btn" onclick="openJoinPopup()">
+        <img src="images/btn-join.png" alt="参加">
+      </button>
+      <button class="img-btn lobby-btn" onclick="startCpuGame()">
+        <img src="images/btn-cpu.png" alt="CPU対戦">
+      </button>
+    </div>
+    <div class="lobby-bottom-btns">
+      <button class="img-btn lobby-btn" onclick="toggleExtraRules()">
+        <img src="images/btn-extra-rules.png" alt="追加ルール">
+      </button>
+      <button class="img-btn lobby-btn" onclick="toggleRules()">
+        <img src="images/btn-howto.png" alt="遊び方">
+      </button>
+    </div>
+  </div>
 
-      <!-- 追加ルール選択 -->
+  <!-- ルーム作成ポップアップ -->
+  <div id="createPopup" class="popup-overlay hidden" onclick="closeOnOverlay(event,'createPopup')">
+    <div class="popup-box">
+      <button class="popup-close" onclick="closeCreatePopup()">&times;</button>
+      <h3>ルームを作る</h3>
       <div class="rule-select-area">
-        <button class="img-btn img-btn-small lobby-btn" onclick="toggleRuleSelect()">
-          <img src="images/btn-rules.png" alt="追加ルール">
-        </button>
+        <button class="btn-rules-toggle" onclick="toggleRuleSelect()">追加ルール</button>
         <div id="ruleSelectPanel" class="rule-select-panel hidden">
           <label class="rule-opt">
             <input type="radio" name="optRule" value="" checked>
@@ -99,48 +108,111 @@
           </label>
         </div>
       </div>
+      <button class="btn btn-primary" onclick="createRoom()" id="btnCreate" style="width:100%;margin-top:16px;">対戦相手を探す</button>
+      <div id="waitingMsg" class="waiting-msg hidden">
+        <div class="spinner"></div>
+        <p>対戦相手を待っています…</p>
+        <p class="room-code-display">合言葉: <strong id="displayCode"></strong></p>
+        <button class="copy-btn" onclick="copyCode()" id="copyBtn">📋 コピーする</button>
+        <p class="hint">この合言葉を相手に伝えてください</p>
+      </div>
     </div>
+  </div>
 
-    <div id="waitingMsg" class="waiting-msg hidden">
-      <div class="spinner"></div>
-      <p>対戦相手を待っています…</p>
-      <p class="room-code-display">合言葉: <strong id="displayCode"></strong></p>
-      <p class="hint">この合言葉を相手に伝えてください</p>
+  <!-- 合言葉参加ポップアップ -->
+  <div id="joinPopup" class="popup-overlay hidden" onclick="closeOnOverlay(event,'joinPopup')">
+    <div class="popup-box">
+      <button class="popup-close" onclick="closeJoinPopup()">&times;</button>
+      <h3>合言葉で参加</h3>
+      <input type="text" id="roomCode" placeholder="合言葉を入力" maxlength="4" class="input-field" style="text-align:center;text-transform:uppercase;font-size:24px;letter-spacing:6px;margin:16px 0;">
+      <button class="btn btn-primary" onclick="joinRoom()" id="btnJoin" style="width:100%;">参加する</button>
     </div>
+  </div>
 
-    <button class="img-btn img-btn-small lobby-btn" onclick="toggleRules()">
-      <img src="images/btn-howto.png" alt="遊び方">
-    </button>
+  <!-- 名前入力ポップアップ -->
+  <div id="namePopup" class="popup-overlay hidden" onclick="closeOnOverlay(event,'namePopup')">
+    <div class="popup-box">
+      <button class="popup-close" onclick="closeNamePopup()">&times;</button>
+      <h3>あなたの名前</h3>
+      <input type="text" id="playerName" placeholder="名前を入力" maxlength="12" class="input-field" style="text-align:center;font-size:20px;margin:16px 0;" list="nameHistory">
+      <datalist id="nameHistory"></datalist>
+      <button class="btn btn-primary" onclick="confirmName()" style="width:100%;">決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 追加ルール選択 ============ -->
+<div id="extraRulesOverlay" class="popup-overlay hidden" onclick="closeOnOverlay(event,'extraRulesOverlay')">
+  <div class="extra-rules-box">
+    <button class="popup-close" onclick="toggleExtraRules()">&times;</button>
+    <img src="images/btn-extra-rules.png" alt="追加ルール" class="extra-rules-header-img">
+    <div class="extra-rules-list">
+      <label class="extra-rule-opt" data-rule="">
+        <input type="radio" name="extraRule" value="" checked>
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">通常ルール</span>
+          <small>標準のルールで対戦</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="traitor">
+        <input type="radio" name="extraRule" value="traitor">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">トレイター</span>
+          <small>1枚捨てて残り7枚を相手と交換</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="loser">
+        <input type="radio" name="extraRule" value="loser">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">ルーザー</span>
+          <small>相手の勝ち数を4にしたら勝利</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="fortune">
+        <input type="radio" name="extraRule" value="fortune">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">フォーチューン</span>
+          <small>山札から毎回1枚めくって対決</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="threeCard">
+        <input type="radio" name="extraRule" value="threeCard">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">スリーカード</span>
+          <small>手元3枚から1枚選んで対決</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="randomDeal">
+        <input type="radio" name="extraRule" value="randomDeal">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">ランダムディール</span>
+          <small>16枚をシャッフルして8枚ずつ配る</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="impatience">
+        <input type="radio" name="extraRule" value="impatience">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">インペイシェンス</span>
+          <small>3勝先取で決着</small>
+        </div>
+      </label>
+      <label class="extra-rule-opt" data-rule="numbers">
+        <input type="radio" name="extraRule" value="numbers">
+        <div class="extra-rule-info">
+          <span class="extra-rule-name">ナンバーズ</span>
+          <small>道化と大臣の能力のみ使用</small>
+        </div>
+      </label>
+    </div>
+    <button class="btn btn-primary extra-rules-confirm" onclick="toggleExtraRules()">決定</button>
   </div>
 </div>
 
 <!-- ============ ルール説明 ============ -->
-<div id="rulesOverlay" class="rules-overlay hidden">
-  <div class="rules-content">
-    <h2>📖 遊び方</h2>
-    <div class="rules-body">
-      <p><strong>基本ルール</strong></p>
-      <ul>
-        <li>お互い同じ8枚のカード(0〜7)を持つ</li>
-        <li>毎ラウンド、同時に1枚ずつカードを出す</li>
-        <li>数字が大きい方が勝ち → 1勝</li>
-        <li><strong>4勝先取</strong>で勝利！</li>
-        <li>引き分けは<strong>持ち越し</strong>（次の勝者がまとめて獲得）</li>
-        <li>8枚使い切って4勝未達なら引き分け</li>
-      </ul>
-      <p><strong>カード能力</strong></p>
-      <div class="rules-cards">
-        <div class="rules-card-row"><span>🤴 王子(7)</span><span>効果なし（最高数値）</span></div>
-        <div class="rules-card-row"><span>🛡️ 将軍(6)</span><span>次に出すカードの強さ+2</span></div>
-        <div class="rules-card-row"><span>🔮 魔術師(5)</span><span>相手の能力を無効にする</span></div>
-        <div class="rules-card-row"><span>👑 大臣(4)</span><span>勝利すると2勝分</span></div>
-        <div class="rules-card-row"><span>🗡️ 暗殺者(3)</span><span>数字の強弱を逆転。王子には無効</span></div>
-        <div class="rules-card-row"><span>🕵️ 密偵(2)</span><span>次の勝負で相手が先出し</span></div>
-        <div class="rules-card-row"><span>👸 姫(1)</span><span>相手が王子ならゲームに勝利</span></div>
-        <div class="rules-card-row"><span>🃏 道化(0)</span><span>勝敗を次の勝負に持ち越す</span></div>
-      </div>
-    </div>
-    <button class="btn btn-secondary" onclick="toggleRules()">閉じる</button>
+<div id="rulesOverlay" class="popup-overlay hidden" onclick="closeOnOverlay(event,'rulesOverlay')">
+  <div class="rules-img-wrap">
+    <button class="rules-close" onclick="toggleRules()">&times;</button>
+    <img src="images/rules.png" alt="遊び方" class="rules-img">
   </div>
 </div>
 
@@ -172,6 +244,7 @@
           <div class="player-info player-info-opponent">
             <span class="player-name" id="opponentName">相手</span>
             <span class="player-score" id="opponentScore">0</span>
+            <span class="bonus-badge hidden" id="opBonusBadge">+2</span>
           </div>
           <div class="battle-slot" id="opponentSlot">
             <div class="card-back" id="opponentCardBack">
@@ -184,6 +257,7 @@
           <div class="player-info player-info-me">
             <span class="player-name" id="myName">あなた</span>
             <span class="player-score" id="myScore">0</span>
+            <span class="bonus-badge hidden" id="myBonusBadge">+2</span>
           </div>
           <div class="battle-slot" id="mySlot">
             <div class="card-placeholder" id="myCardPlaceholder">カードを選べ</div>
@@ -207,9 +281,15 @@
   <div id="roundResultOverlay" class="result-overlay hidden">
     <div class="result-content">
       <div class="result-cards">
-        <div class="result-card" id="resultCard1"></div>
-        <div class="result-vs">⚡</div>
-        <div class="result-card" id="resultCard2"></div>
+        <div class="result-card-wrap">
+          <div class="rc-name-label" id="rcName1"></div>
+          <div class="result-card" id="resultCard1"></div>
+        </div>
+        <div class="result-vs" id="resultVs">⚡</div>
+        <div class="result-card-wrap">
+          <div class="rc-name-label" id="rcName2"></div>
+          <div class="result-card" id="resultCard2"></div>
+        </div>
       </div>
       <div class="result-log" id="resultLog"></div>
       <div class="result-scores" id="resultScores"></div>

@@ -37,7 +37,7 @@ const bgmBuffers = {};
 let currentBgmSource = null;
 let currentBgmGain = null;
 let currentBgmKey = null;
-const BGM_VOLUMES = { titleBgm: 0.4, battleBgm: 0.35, tensionBgm: 0.4, victoryBgm: 0.4, defeatBgm: 0.4, drawBgm: 0.4 };
+const BGM_VOLUMES = { titleBgm: 0.3, battleBgm: 0.45, tensionBgm: 0.5, victoryBgm: 0.45, defeatBgm: 0.45, drawBgm: 0.45 };
 const SE_DEFAULT_VOLS = {};
 let audioUnlocked = false;
 let bgmMaster = 1;
@@ -69,6 +69,7 @@ const seAudio = {
   cardHover: new Audio('audio/card-hover.mp3'),
   btnHover: new Audio('audio/btn-hover.mp3'),
   startFx: new Audio('audio/start-fx.mp3'),
+  matchStart: new Audio('audio/match-start.mp3'),
 };
 SE_DEFAULT_VOLS.youWin = 0.6;
 SE_DEFAULT_VOLS.youLose = 0.6;
@@ -204,6 +205,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.lobby-btn').forEach(el => {
     el.addEventListener('mouseenter', () => playSe(seAudio.btnHover));
   });
+
+  const saved = JSON.parse(localStorage.getItem('nameHistory') || '[]');
+  if (saved.length) {
+    document.getElementById('playerName').value = saved[0];
+  }
 });
 
 function playBgmNow(key) {
@@ -261,12 +267,61 @@ function checkTensionBgm(wins) {
 // ============ ロビー ============
 
 function getSelectedRule() {
-  const el = document.querySelector('input[name="optRule"]:checked');
+  const el = document.querySelector('input[name="extraRule"]:checked');
   return el && el.value ? [el.value] : [];
+}
+
+function toggleExtraRules() {
+  document.getElementById('extraRulesOverlay').classList.toggle('hidden');
 }
 
 function toggleRuleSelect() {
   document.getElementById('ruleSelectPanel').classList.toggle('hidden');
+}
+
+function openCreatePopup() {
+  playSe(seAudio.btnHover);
+  document.getElementById('createPopup').classList.remove('hidden');
+}
+function closeCreatePopup() {
+  document.getElementById('createPopup').classList.add('hidden');
+  document.getElementById('waitingMsg').classList.add('hidden');
+  document.getElementById('btnCreate').disabled = false;
+}
+function openJoinPopup() {
+  playSe(seAudio.btnHover);
+  document.getElementById('joinPopup').classList.remove('hidden');
+  setTimeout(() => document.getElementById('roomCode').focus(), 100);
+}
+function closeJoinPopup() {
+  document.getElementById('joinPopup').classList.add('hidden');
+}
+
+function openNamePopup() {
+  playSe(seAudio.btnHover);
+  const saved = JSON.parse(localStorage.getItem('nameHistory') || '[]');
+  const dl = document.getElementById('nameHistory');
+  dl.innerHTML = saved.map(n => `<option value="${n}">`).join('');
+  document.getElementById('namePopup').classList.remove('hidden');
+  setTimeout(() => document.getElementById('playerName').focus(), 100);
+}
+function closeNamePopup() {
+  document.getElementById('namePopup').classList.add('hidden');
+}
+function confirmName() {
+  const name = document.getElementById('playerName').value.trim();
+  if (name) {
+    const saved = JSON.parse(localStorage.getItem('nameHistory') || '[]');
+    const updated = [name, ...saved.filter(n => n !== name)].slice(0, 10);
+    localStorage.setItem('nameHistory', JSON.stringify(updated));
+  }
+  closeNamePopup();
+}
+
+function closeOnOverlay(e, id) {
+  if (e.target.id === id) {
+    document.getElementById(id).classList.add('hidden');
+  }
 }
 
 function createRoom() {
@@ -279,13 +334,21 @@ function createRoom() {
       document.getElementById('displayCode').textContent = res.code;
       document.getElementById('waitingMsg').classList.remove('hidden');
       document.getElementById('btnCreate').disabled = true;
-      document.getElementById('btnJoin').disabled = true;
     }
   });
 }
 
+function copyCode() {
+  const code = document.getElementById('displayCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✅ コピーしました！';
+    setTimeout(() => { btn.textContent = '📋 コピーする'; }, 1500);
+  });
+}
+
 function joinRoom() {
-  playSe(seAudio.startFx);
+  playSe(seAudio.matchStart);
   const name = document.getElementById('playerName').value.trim() || 'Player 2';
   const code = document.getElementById('roomCode').value.trim().toUpperCase();
   if (code.length !== 4) return;
@@ -294,6 +357,7 @@ function joinRoom() {
     if (res.success) {
       myPlayerIndex = res.playerIndex;
       if (res.rules) activeRules = res.rules;
+      closeJoinPopup();
     } else {
       alert(res.error);
     }
@@ -301,7 +365,7 @@ function joinRoom() {
 }
 
 function startCpuGame() {
-  playSe(seAudio.startFx);
+  playSe(seAudio.matchStart);
   const name = document.getElementById('playerName').value.trim() || 'Player';
   const rules = getSelectedRule();
   socket.emit('createCpuGame', { name, rules }, (res) => {
@@ -316,6 +380,9 @@ function startCpuGame() {
 
 document.getElementById('roomCode').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinRoom();
+});
+document.getElementById('playerName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmName();
 });
 
 // ============ トレイターフェーズ ============
@@ -656,13 +723,24 @@ function hideSpyPersist() {
 // ============ 将軍ボーナス ============
 
 socket.on('bonusActive', (data) => {
+  const opIdx = myPlayerIndex === 0 ? 1 : 0;
+  const myBadge = document.getElementById('myBonusBadge');
+  const opBadge = document.getElementById('opBonusBadge');
   if (data.bonuses[myPlayerIndex] > 0) {
     showStatusBar(`🛡️ 将軍の力で今ラウンド数字+${data.bonuses[myPlayerIndex]}！`);
+    myBadge.textContent = `+${data.bonuses[myPlayerIndex]}`;
+    myBadge.classList.remove('hidden');
   } else {
-    const opIdx = myPlayerIndex === 0 ? 1 : 0;
-    if (data.bonuses[opIdx] > 0) {
+    myBadge.classList.add('hidden');
+  }
+  if (data.bonuses[opIdx] > 0) {
+    if (!(data.bonuses[myPlayerIndex] > 0)) {
       showStatusBar(`⚠️ 相手は将軍の力で数字+${data.bonuses[opIdx]}！`);
     }
+    opBadge.textContent = `+${data.bonuses[opIdx]}`;
+    opBadge.classList.remove('hidden');
+  } else {
+    opBadge.classList.add('hidden');
   }
 });
 
@@ -692,19 +770,33 @@ socket.on('roundResult', (data) => {
   else if (opIsWinner) playSe(seAudio.roundLose);
   else if (isDraw) playSe(seAudio.roundDraw);
 
+  const opName = data.playerNames[myPlayerIndex === 0 ? 1 : 0];
+  const myName = data.playerNames[myPlayerIndex];
+
   const r1 = document.getElementById('resultCard1');
   r1.className = 'result-card ' + (opIsWinner ? 'winner' : isDraw ? 'draw-card' : 'loser');
   r1.dataset.col = opCard.spriteCol;
   r1.dataset.row = opCard.spriteRow;
   setSpritePosition(r1, opCard.spriteCol, opCard.spriteRow);
-  r1.innerHTML = `<span class="rc-player">${escHtml(data.playerNames[myPlayerIndex === 0 ? 1 : 0])}</span>`;
+  r1.innerHTML = '';
+  document.getElementById('rcName1').textContent = opName;
 
   const r2 = document.getElementById('resultCard2');
   r2.className = 'result-card ' + (myIsWinner ? 'winner' : isDraw ? 'draw-card' : 'loser');
   r2.dataset.col = myCard.spriteCol;
   r2.dataset.row = myCard.spriteRow;
   setSpritePosition(r2, myCard.spriteCol, myCard.spriteRow);
-  r2.innerHTML = `<span class="rc-player">${escHtml(data.playerNames[myPlayerIndex])}</span>`;
+  r2.innerHTML = '';
+  document.getElementById('rcName2').textContent = myName;
+
+  const vsEl = document.getElementById('resultVs');
+  if (isDraw) {
+    vsEl.textContent = 'DRAW';
+    vsEl.classList.add('draw-flash');
+  } else {
+    vsEl.textContent = '⚡';
+    vsEl.classList.remove('draw-flash');
+  }
 
   document.getElementById('resultLog').textContent = data.log;
   document.getElementById('resultScores').textContent =
@@ -931,6 +1023,8 @@ function showStatusBar(text) {
 
 function hideStatusBar() {
   document.getElementById('statusBar').classList.add('hidden');
+  document.getElementById('myBonusBadge').classList.add('hidden');
+  document.getElementById('opBonusBadge').classList.add('hidden');
 }
 
 function showNotification(text) {

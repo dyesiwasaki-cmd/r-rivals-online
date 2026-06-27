@@ -48,6 +48,17 @@ function createFreshHand() {
   return CARDS.map(c => ({ ...c, used: false }));
 }
 
+function cpuChooseTraitorDiscard(hand) {
+  // 相手に渡したくないカードほど捨てる優先度が高い
+  const weights = { 7: 5, 4: 4, 1: 3, 6: 3, 3: 2, 5: 2, 2: 1, 0: 1 };
+  const pool = [];
+  for (const c of hand) {
+    const w = weights[c.id] || 1;
+    for (let i = 0; i < w; i++) pool.push(c);
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function createRandomDealHands() {
   const pool = [...CARDS.map(c => ({ ...c, used: false })), ...CARDS.map(c => ({ ...c, used: false }))];
   const shuffled = shuffle(pool);
@@ -323,8 +334,7 @@ io.on('connection', (socket) => {
     // トレイター: CPU対戦では自動処理
     if (rules.includes('traitor')) {
       room.players.forEach(p => { p.hand = createFreshHand(); });
-      // CPUは最弱カードを捨てる
-      const cpuDiscard = room.players[1].hand.find(c => c.id === 0) || room.players[1].hand[0];
+      const cpuDiscard = cpuChooseTraitorDiscard(room.players[1].hand);
       const cpuRemaining = room.players[1].hand.filter(c => c !== cpuDiscard);
       // プレイヤーに捨て札選択を促す
       room.state = 'traitor_discard';
@@ -476,7 +486,7 @@ io.on('connection', (socket) => {
     // 密偵ラウンド: ターゲットが先に出す → 相手に公開
     if (room.spyTarget === socket.playerIndex) {
       if (room.isCpuGame && opIdx === 1) {
-        setTimeout(() => cpuSelectCard(room, card), 1000);
+        setTimeout(() => cpuSelectCard(room, card), 2500);
       } else {
         io.to(room.players[opIdx].id).emit('spyReveal', {
           card: card,
@@ -807,7 +817,7 @@ io.on('connection', (socket) => {
         room.players.forEach(p => { p.hand = createFreshHand(); });
 
         if (room.isCpuGame) {
-          const cpuDiscard = room.players[1].hand.find(c => c.id === 0) || room.players[1].hand[0];
+          const cpuDiscard = cpuChooseTraitorDiscard(room.players[1].hand);
           room.traitorDiscards[1] = cpuDiscard;
           room.cpuTraitorRemaining = room.players[1].hand.filter(c => c !== cpuDiscard);
           io.to(room.players[0].id).emit('traitorPhase', { hand: room.players[0].hand });
