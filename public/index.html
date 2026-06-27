@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アールライバルズ オンライン</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ タイトル画面 ============ -->
+<div id="lobby" class="screen active">
+  <div class="lobby-container">
+    <div class="title-art">
+      <img src="images/logo.png" alt="R-Rivals Online" class="title-logo">
+    </div>
+
+    <div class="lobby-form">
+      <input type="text" id="playerName" placeholder="あなたの名前" maxlength="12" class="input-field">
+
+      <div class="lobby-buttons">
+        <button id="btnCreate" class="img-btn img-btn-large lobby-btn" onclick="createRoom()">
+          <img src="images/btn-create.png" alt="ルームを作る">
+        </button>
+        <div class="join-group">
+          <button class="img-btn img-btn-half lobby-btn" onclick="document.getElementById('roomCode').focus()">
+            <img src="images/btn-password.png" alt="合言葉">
+            <input type="text" id="roomCode" placeholder="入力" maxlength="4" class="code-overlay">
+          </button>
+          <button id="btnJoin" class="img-btn img-btn-half lobby-btn" onclick="joinRoom()">
+            <img src="images/btn-join.png" alt="参加">
+          </button>
+        </div>
+        <button id="btnCpu" class="img-btn img-btn-large lobby-btn" onclick="startCpuGame()">
+          <img src="images/btn-cpu.png" alt="CPU対戦">
+        </button>
+      </div>
+
+      <!-- 追加ルール選択 -->
+      <div class="rule-select-area">
+        <button class="img-btn img-btn-small lobby-btn" onclick="toggleRuleSelect()">
+          <img src="images/btn-rules.png" alt="追加ルール">
+        </button>
+        <div id="ruleSelectPanel" class="rule-select-panel hidden">
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="" checked>
+            <span class="rule-opt-name">通常ルール</span>
+            <small>標準のルールで対戦</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="traitor">
+            <span class="rule-opt-name">トレイター</span>
+            <small>1枚捨てて残り7枚を相手と交換</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="loser">
+            <span class="rule-opt-name">ルーザー</span>
+            <small>相手の勝ち数を4にしたら勝利</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="fortune">
+            <span class="rule-opt-name">フォーチューン</span>
+            <small>山札から毎回1枚めくって対決</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="threeCard">
+            <span class="rule-opt-name">スリーカード</span>
+            <small>手元3枚から1枚選んで対決</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="randomDeal">
+            <span class="rule-opt-name">ランダムディール</span>
+            <small>16枚をシャッフルして8枚ずつ配る</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="impatience">
+            <span class="rule-opt-name">インペイシェンス</span>
+            <small>3勝先取で決着</small>
+          </label>
+          <label class="rule-opt">
+            <input type="radio" name="optRule" value="numbers">
+            <span class="rule-opt-name">ナンバーズ</span>
+            <small>道化と大臣の能力のみ使用</small>
+          </label>
+          <label class="rule-opt disabled">
+            <input type="radio" name="optRule" value="draft" disabled>
+            <span class="rule-opt-name">ドラフト</span>
+            <small>準備中…</small>
+          </label>
+          <label class="rule-opt disabled">
+            <input type="radio" name="optRule" value="princessAttack" disabled>
+            <span class="rule-opt-name">プリンセス・アタック</span>
+            <small>準備中…</small>
+          </label>
+          <label class="rule-opt disabled">
+            <input type="radio" name="optRule" value="trueKing" disabled>
+            <span class="rule-opt-name">トゥルー・キング</span>
+            <small>準備中…</small>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="waitingMsg" class="waiting-msg hidden">
+      <div class="spinner"></div>
+      <p>対戦相手を待っています…</p>
+      <p class="room-code-display">合言葉: <strong id="displayCode"></strong></p>
+      <p class="hint">この合言葉を相手に伝えてください</p>
+    </div>
+
+    <button class="img-btn img-btn-small lobby-btn" onclick="toggleRules()">
+      <img src="images/btn-howto.png" alt="遊び方">
+    </button>
+  </div>
+</div>
+
+<!-- ============ ルール説明 ============ -->
+<div id="rulesOverlay" class="rules-overlay hidden">
+  <div class="rules-content">
+    <h2>📖 遊び方</h2>
+    <div class="rules-body">
+      <p><strong>基本ルール</strong></p>
+      <ul>
+        <li>お互い同じ8枚のカード(0〜7)を持つ</li>
+        <li>毎ラウンド、同時に1枚ずつカードを出す</li>
+        <li>数字が大きい方が勝ち → 1勝</li>
+        <li><strong>4勝先取</strong>で勝利！</li>
+        <li>引き分けは<strong>持ち越し</strong>（次の勝者がまとめて獲得）</li>
+        <li>8枚使い切って4勝未達なら引き分け</li>
+      </ul>
+      <p><strong>カード能力</strong></p>
+      <div class="rules-cards">
+        <div class="rules-card-row"><span>🤴 王子(7)</span><span>効果なし（最高数値）</span></div>
+        <div class="rules-card-row"><span>🛡️ 将軍(6)</span><span>次に出すカードの強さ+2</span></div>
+        <div class="rules-card-row"><span>🔮 魔術師(5)</span><span>相手の能力を無効にする</span></div>
+        <div class="rules-card-row"><span>👑 大臣(4)</span><span>勝利すると2勝分</span></div>
+        <div class="rules-card-row"><span>🗡️ 暗殺者(3)</span><span>数字の強弱を逆転。王子には無効</span></div>
+        <div class="rules-card-row"><span>🕵️ 密偵(2)</span><span>次の勝負で相手が先出し</span></div>
+        <div class="rules-card-row"><span>👸 姫(1)</span><span>相手が王子ならゲームに勝利</span></div>
+        <div class="rules-card-row"><span>🃏 道化(0)</span><span>勝敗を次の勝負に持ち越す</span></div>
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="toggleRules()">閉じる</button>
+  </div>
+</div>
+
+<!-- ============ ゲーム画面 ============ -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <div class="round-info">
+      <span id="roundNum">ROUND 1</span>
+      <div class="score-goal" id="scoreGoal">4勝先取</div>
+      <div id="activeRuleBadge" class="rule-badge hidden"></div>
+    </div>
+  </div>
+
+  <!-- ステータスバー（持ち越し・ボーナス表示） -->
+  <div id="statusBar" class="status-bar hidden"></div>
+
+  <!-- メインエリア（左パネル + 中央 + 右パネル） -->
+  <div class="game-body">
+    <!-- 左: 相手の残りカード -->
+    <div class="side-panel side-left" id="sidePanel">
+      <div class="side-section-title">相手の残り</div>
+      <div class="tracker-cards" id="opponentTracker"></div>
+    </div>
+
+    <!-- 中央（バトルフィールド + 手札） -->
+    <div class="game-center">
+      <div class="battlefield">
+        <div class="battle-column">
+          <div class="player-info player-info-opponent">
+            <span class="player-name" id="opponentName">相手</span>
+            <span class="player-score" id="opponentScore">0</span>
+          </div>
+          <div class="battle-slot" id="opponentSlot">
+            <div class="card-back" id="opponentCardBack">
+              <div class="card-back-design">?</div>
+            </div>
+          </div>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="battle-column">
+          <div class="player-info player-info-me">
+            <span class="player-name" id="myName">あなた</span>
+            <span class="player-score" id="myScore">0</span>
+          </div>
+          <div class="battle-slot" id="mySlot">
+            <div class="card-placeholder" id="myCardPlaceholder">カードを選べ</div>
+          </div>
+        </div>
+      </div>
+      <div class="hand-area">
+        <div class="hand-label">— あなたの手札 —</div>
+        <div class="hand" id="hand"></div>
+      </div>
+    </div>
+
+    <!-- 右: 対戦フロー -->
+    <div class="side-panel side-right" id="flowPanel">
+      <div class="side-section-title">対戦フロー</div>
+      <div class="battle-flow" id="battleFlow"></div>
+    </div>
+  </div>
+
+  <!-- ラウンド結果 -->
+  <div id="roundResultOverlay" class="result-overlay hidden">
+    <div class="result-content">
+      <div class="result-cards">
+        <div class="result-card" id="resultCard1"></div>
+        <div class="result-vs">⚡</div>
+        <div class="result-card" id="resultCard2"></div>
+      </div>
+      <div class="result-log" id="resultLog"></div>
+      <div class="result-scores" id="resultScores"></div>
+      <div class="result-hint">クリックして次へ</div>
+    </div>
+  </div>
+
+  <!-- 密偵リビール -->
+  <div id="spyRevealOverlay" class="spy-overlay hidden">
+    <div class="spy-content">
+      <div class="spy-title">🕵️ 密偵の報告</div>
+      <div class="spy-card" id="spyCardDisplay"></div>
+      <p id="spyMessage"></p>
+      <p class="spy-hint">カードを選んで相手を倒せ！</p>
+      <button class="btn btn-secondary" onclick="closeSpyReveal()">了解</button>
+    </div>
+  </div>
+
+  <!-- トレイター: 捨て札フェーズ -->
+  <div id="traitorOverlay" class="traitor-overlay hidden">
+    <div class="traitor-content">
+      <div class="traitor-icon">🗡️</div>
+      <h3>トレイター</h3>
+      <p>1枚選んで捨て札にしてください<br><small>残りの7枚は相手と交換されます</small></p>
+      <div class="traitor-cards" id="traitorCards"></div>
+      <button class="btn btn-primary" id="traitorConfirm" disabled onclick="confirmDiscard()">捨てる</button>
+    </div>
+  </div>
+
+  <!-- サイドパネル開閉（モバイル用） -->
+  <div class="side-toggle" onclick="toggleSidePanel()">📋</div>
+</div>
+
+<!-- ============ ゲームオーバー ============ -->
+<div id="gameOver" class="screen">
+  <div class="gameover-container">
+    <div class="gameover-crown" id="gameoverCrown"></div>
+    <h2 id="gameoverTitle"></h2>
+    <div id="gameoverScores"></div>
+    <div id="gameoverHistory"></div>
+    <div class="total-record" id="totalRecord"></div>
+    <button class="btn-reset-record" onclick="resetRecord()">成績リセット</button>
+    <button class="btn btn-primary" onclick="rematch()">
+      <span class="btn-icon">🔄</span> もう一度
+    </button>
+    <button class="btn btn-secondary" onclick="backToLobby()">
+      ロビーに戻る
+    </button>
+  </div>
+</div>
+
+<!-- 音量コントロール -->
+<div class="vol-btn" id="volBtn" onclick="toggleMute()" oncontextmenu="event.preventDefault();toggleVolPanel()">🔊</div>
+<button class="vol-gear" id="volGear" onclick="toggleVolPanel()">⚙</button>
+<div class="vol-panel hidden" id="volPanel">
+  <div class="vol-row">
+    <span class="vol-label">🎵 BGM</span>
+    <input type="range" min="0" max="100" class="vol-slider" id="bgmSlider" oninput="setBgmVol(this.value)">
+    <span class="vol-val" id="bgmVal">100</span>
+  </div>
+  <div class="vol-row">
+    <span class="vol-label">🔔 効果音</span>
+    <input type="range" min="0" max="100" class="vol-slider" id="seSlider" oninput="setSeVol(this.value)">
+    <span class="vol-val" id="seVal">100</span>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
