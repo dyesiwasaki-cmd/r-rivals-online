@@ -243,8 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'running') {
+    function pcAutoPlay() {
+      if (audioCtx.state !== 'running') return;
       audioUnlocked = true;
+      ['mousedown','touchstart','touchend','click','keydown'].forEach(ev =>
+        document.removeEventListener(ev, unlockAudio));
       const waitForBuffers = setInterval(() => {
         if (bgmRawBuffers.titleBgm) {
           clearInterval(waitForBuffers);
@@ -259,6 +262,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }, 100);
       setTimeout(() => clearInterval(waitForBuffers), 10000);
+    }
+    if (audioCtx.state === 'running') {
+      pcAutoPlay();
+    } else {
+      audioCtx.addEventListener('statechange', pcAutoPlay);
+      audioCtx.resume().catch(() => {});
     }
   } catch (e) {}
 
