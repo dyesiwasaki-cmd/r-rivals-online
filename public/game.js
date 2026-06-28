@@ -241,6 +241,26 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {});
   });
 
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'running') {
+      audioUnlocked = true;
+      const waitForBuffers = setInterval(() => {
+        if (bgmRawBuffers.titleBgm) {
+          clearInterval(waitForBuffers);
+          decodeBgm('titleBgm', bgmRawBuffers.titleBgm.slice(0)).then(ok => {
+            if (ok && !currentBgmKey) playBgmNow('titleBgm');
+          });
+          Object.keys(BGM_FILES).forEach(k => {
+            if (k !== 'titleBgm' && bgmRawBuffers[k]) {
+              decodeBgm(k, bgmRawBuffers[k].slice(0));
+            }
+          });
+        }
+      }, 100);
+      setTimeout(() => clearInterval(waitForBuffers), 10000);
+    }
+  } catch (e) {}
 
   initVolUI();
   document.addEventListener('click', (e) => {
