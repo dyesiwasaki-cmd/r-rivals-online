@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>アールライバルズ オンライン</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -320,7 +320,9 @@
   </div>
 
   <!-- サイドパネル開閉（モバイル用） -->
-  <div class="side-toggle" onclick="toggleSidePanel()">📋</div>
+  <div class="side-overlay" id="sideOverlay" onclick="closeSidePanels()"></div>
+  <div class="side-toggle side-toggle-left" onclick="toggleSidePanel()">📋</div>
+  <div class="side-toggle side-toggle-right" onclick="toggleFlowPanel()">📜</div>
 </div>
 
 <!-- ============ ゲームオーバー ============ -->

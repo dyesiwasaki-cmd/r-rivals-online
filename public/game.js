@@ -1,5 +1,11 @@
 const socket = io();
 
+function setVh() {
+  document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+}
+setVh();
+window.addEventListener('resize', setVh);
+
 let myPlayerIndex = -1;
 let myHand = [];
 let selectedCardId = null;
@@ -124,6 +130,9 @@ function setBgmVol(val) {
   if (currentBgmGain && currentBgmKey) {
     currentBgmGain.gain.value = (BGM_VOLUMES[currentBgmKey] || 0.4) * bgmMaster;
   }
+  if (titleAudioEl && currentBgmKey === 'titleBgm') {
+    titleAudioEl.volume = (BGM_VOLUMES.titleBgm || 0.4) * bgmMaster;
+  }
   saveVolSettings();
 }
 
@@ -146,6 +155,8 @@ const BGM_FILES = {
   drawBgm: 'audio/draw-bgm.mp3',
 };
 
+const bgmRawBuffers = {};
+
 function decodeBgm(key, arrayBuf) {
   return new Promise((resolve) => {
     audioCtx.decodeAudioData(arrayBuf,
@@ -155,43 +166,81 @@ function decodeBgm(key, arrayBuf) {
   });
 }
 
+let titleAudioEl = null;
+
+function tryPlayTitle() {
+  if (currentBgmKey || document.getElementById('game').classList.contains('active')) return;
+  if (titleAudioEl) {
+    titleAudioEl.volume = (BGM_VOLUMES.titleBgm || 0.4) * bgmMaster;
+    titleAudioEl.play().catch(() => {});
+    currentBgmKey = 'titleBgm';
+  } else if (bgmBuffers.titleBgm) {
+    playBgmNow('titleBgm');
+  }
+}
+
+function decodeAllAndPlay() {
+  const keys = Object.keys(bgmRawBuffers).filter(k => !bgmBuffers[k]);
+  if (keys.length === 0) { tryPlayTitle(); return; }
+  Promise.all(keys.map(k => decodeBgm(k, bgmRawBuffers[k].slice(0)))).then(() => tryPlayTitle());
+}
+
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
-  ['mousedown','touchstart','keydown'].forEach(ev => document.removeEventListener(ev, unlockAudio));
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  ['mousedown','touchstart','touchend','click','keydown'].forEach(ev =>
+    document.removeEventListener(ev, unlockAudio));
+
+  if (!titleAudioEl) {
+    titleAudioEl = new Audio(BGM_FILES.titleBgm);
+    titleAudioEl.loop = true;
+    titleAudioEl.volume = (BGM_VOLUMES.titleBgm || 0.4) * bgmMaster;
+  }
+  tryPlayTitle();
+
+  Object.keys(bgmBuffers).forEach(k => delete bgmBuffers[k]);
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const silent = audioCtx.createBuffer(1, 1, 22050);
+  const src = audioCtx.createBufferSource();
+  src.buffer = silent;
+  src.connect(audioCtx.destination);
+  src.start(0);
   audioCtx.resume().then(() => {
-    if (bgmBuffers.titleBgm && !currentBgmKey && !document.getElementById('game').classList.contains('active')) {
-      playBgmNow('titleBgm');
+    const keys = Object.keys(bgmRawBuffers).filter(k => !bgmBuffers[k]);
+    if (keys.length > 0) {
+      Promise.all(keys.map(k => decodeBgm(k, bgmRawBuffers[k].slice(0)))).catch(() => {});
     }
-  });
-  Object.keys(BGM_FILES).forEach(k => {
-    if (!bgmBuffers[k]) {
-      fetch(BGM_FILES[k])
-        .then(r => r.arrayBuffer())
-        .then(buf => decodeBgm(k, buf))
-        .then(ok => {
-          if (ok && k === 'titleBgm' && !currentBgmKey && !document.getElementById('game').classList.contains('active')) {
-            playBgmNow('titleBgm');
+    Object.keys(BGM_FILES).forEach(k => {
+      if (!bgmRawBuffers[k]) {
+        fetch(BGM_FILES[k]).then(r => r.arrayBuffer()).then(buf => {
+          bgmRawBuffers[k] = buf;
+          if (audioCtx.state === 'running' && !bgmBuffers[k]) {
+            decodeBgm(k, buf.slice(0)).catch(() => {});
           }
-        })
-        .catch(e => console.warn('BGM load error:', k, e));
-    }
+        }).catch(() => {});
+      }
+    });
   });
 }
-['mousedown','touchstart','keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { once: false }));
+['mousedown','touchstart','touchend','click','keydown'].forEach(ev =>
+  document.addEventListener(ev, unlockAudio, { once: false }));
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (titleAudioEl && currentBgmKey === 'titleBgm') {
+    titleAudioEl.play().catch(() => {});
+  }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  fetch(BGM_FILES.titleBgm)
-    .then(r => r.arrayBuffer())
-    .then(buf => decodeBgm('titleBgm', buf))
-    .then(ok => {
-      if (ok && audioCtx.state === 'running' && !currentBgmKey) {
-        playBgmNow('titleBgm');
-      }
-    })
-    .catch(() => {});
+  Object.keys(BGM_FILES).forEach(k => {
+    fetch(BGM_FILES[k])
+      .then(r => r.arrayBuffer())
+      .then(buf => { bgmRawBuffers[k] = buf; })
+      .catch(() => {});
+  });
+
 
   initVolUI();
   document.addEventListener('click', (e) => {
@@ -242,12 +291,16 @@ function playBgm(key) {
 }
 
 function stopBgm() {
+  if (titleAudioEl) {
+    titleAudioEl.pause();
+    titleAudioEl.currentTime = 0;
+  }
   if (currentBgmSource) {
     try { currentBgmSource.stop(); } catch (_) {}
     currentBgmSource = null;
     currentBgmGain = null;
-    currentBgmKey = null;
   }
+  currentBgmKey = null;
 }
 
 function playSe(se) {
@@ -538,6 +591,80 @@ socket.on('fortuneCard', (data) => {
 
 let draggingCardId = null;
 
+function setupTouchDrag(el, card) {
+  let ghost = null;
+  let ghostW = 0, ghostH = 0;
+  let startX, startY, isDragging = false;
+
+  function cleanupDrag() {
+    if (ghost) { ghost.remove(); ghost = null; }
+    el.classList.remove('dragging');
+    draggingCardId = null;
+    const slot = document.getElementById('mySlot');
+    slot.classList.remove('drop-ready', 'drop-hover');
+    isDragging = false;
+  }
+
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    isDragging = false;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (!isDragging && dy < -20) {
+      isDragging = true;
+      draggingCardId = card.id;
+      el.classList.add('dragging');
+      document.getElementById('mySlot').classList.add('drop-ready');
+      ghost = el.cloneNode(true);
+      ghost.classList.add('touch-ghost');
+      const rect = el.getBoundingClientRect();
+      ghostW = rect.width;
+      ghostH = rect.height;
+      ghost.style.width = ghostW + 'px';
+      ghost.style.height = ghostH + 'px';
+      ghost.style.left = (t.clientX - ghostW / 2) + 'px';
+      ghost.style.top = (t.clientY - ghostH - 10) + 'px';
+      document.body.appendChild(ghost);
+      playSe(seAudio.cardHover);
+    }
+    if (isDragging && ghost) {
+      ghost.style.left = (t.clientX - ghostW / 2) + 'px';
+      ghost.style.top = (t.clientY - ghostH - 10) + 'px';
+      const slot = document.getElementById('mySlot');
+      const sr = slot.getBoundingClientRect();
+      const over = t.clientX >= sr.left && t.clientX <= sr.right && t.clientY >= sr.top && t.clientY <= sr.bottom;
+      slot.classList.toggle('drop-hover', over);
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchend', () => {
+    if (isDragging) {
+      const slot = document.getElementById('mySlot');
+      if (ghost) {
+        const gr = ghost.getBoundingClientRect();
+        const cx = gr.left + gr.width / 2;
+        const cy = gr.top + gr.height / 2;
+        const sr = slot.getBoundingClientRect();
+        if (cx >= sr.left && cx <= sr.right && cy >= sr.top && cy <= sr.bottom) {
+          selectCard(card.id);
+        }
+      }
+      cleanupDrag();
+    } else {
+      selectCard(card.id);
+    }
+  });
+
+  el.addEventListener('touchcancel', cleanupDrag);
+}
+
 function renderHand() {
   if (activeRules.includes('fortune')) return;
 
@@ -551,22 +678,27 @@ function renderHand() {
     el.dataset.row = card.spriteRow;
     el.innerHTML = '';
     if (!card.used && !isResolving) {
-      el.draggable = true;
-      el.onmouseenter = () => playSe(seAudio.cardHover);
-      el.ondblclick = () => selectCard(card.id);
-      el.ondragstart = (e) => {
-        draggingCardId = card.id;
-        el.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', card.id);
-        document.getElementById('mySlot').classList.add('drop-ready');
-      };
-      el.ondragend = () => {
-        el.classList.remove('dragging');
-        draggingCardId = null;
-        document.getElementById('mySlot').classList.remove('drop-ready');
-        document.getElementById('mySlot').classList.remove('drop-hover');
-      };
+      const isTouchDevice = !window.matchMedia('(hover: hover)').matches;
+      if (!isTouchDevice) {
+        el.draggable = true;
+        el.onmouseenter = () => playSe(seAudio.cardHover);
+        el.onclick = () => selectCard(card.id);
+        el.ondragstart = (e) => {
+          draggingCardId = card.id;
+          el.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.id);
+          document.getElementById('mySlot').classList.add('drop-ready');
+        };
+        el.ondragend = () => {
+          el.classList.remove('dragging');
+          draggingCardId = null;
+          document.getElementById('mySlot').classList.remove('drop-ready');
+          document.getElementById('mySlot').classList.remove('drop-hover');
+        };
+      } else {
+        setupTouchDrag(el, card);
+      }
     }
     container.appendChild(el);
   });
@@ -990,9 +1122,22 @@ function renderOpponentTracker() {
   }).join('');
 }
 
+function closeSidePanels() {
+  document.getElementById('sidePanel')?.classList.remove('open');
+  document.getElementById('flowPanel')?.classList.remove('open');
+  document.getElementById('sideOverlay')?.classList.remove('open');
+}
+
 function toggleSidePanel() {
-  document.getElementById('sidePanel')?.classList.toggle('open');
-  document.getElementById('flowPanel')?.classList.toggle('open');
+  const isOpen = document.getElementById('sidePanel')?.classList.toggle('open');
+  document.getElementById('flowPanel')?.classList.remove('open');
+  document.getElementById('sideOverlay')?.classList.toggle('open', isOpen);
+}
+
+function toggleFlowPanel() {
+  const isOpen = document.getElementById('flowPanel')?.classList.toggle('open');
+  document.getElementById('sidePanel')?.classList.remove('open');
+  document.getElementById('sideOverlay')?.classList.toggle('open', isOpen);
 }
 
 // ============ ユーティリティ ============
